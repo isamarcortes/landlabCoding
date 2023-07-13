@@ -48,11 +48,15 @@ salinityAtCenter = np.zeros(n_steps)
 
 import rasterio as rio
 
+
+
+
+
 File = rio.open('/Users/isamarcortes/Dropbox/Isamar/Papers_In_Prep/Paper_4/RasterLayersForLandlab/PR1.tif')
 veg_array = File.read(1)
 sal_array = File.read(1)
 sal_array[sal_array==0]=35
-
+sal_array[sal_array==1]=36
 
 
 
@@ -63,14 +67,59 @@ Island = RasterModelGrid((veg_array.shape))
 Island.add_field('vegetation',veg_array,at='node')
 
 
-Island.add_field('salinity',sal_array,at='node')
-Island.status_at_node['salinity'==35]=Island.BC_NODE_IS_FIXED_VALUE
-#Island.status_at_node['salinity'==1]=Island.BC_NODE_IS_CORE
 
+test = Island.add_field('salinity',sal_array,at='node')
+Island.status_at_node['salinity'==35]=Island.BC_NODE_IS_CLOSED
+Island.status_at_node['salinity'==36]=Island.BC_NODE_IS_CORE
+qs = Island.add_zeros("salinity_flux", at="link")
+#Island.imshow('vegetation')
+
+Enet = 0.9 #m/yr net evaporation rate
+D = 21 #m^2/yr 
+dt = 0.2 * Island.dx * Island.dx / D
+
+
+#Island.set_closed_boundaries_at_grid_edges(True, False, True, False)
+
+#g = Island.calc_grad_at_link(test)
+#q = -D * g
+#dqda = Island.calc_flux_div_at_node(q) 
+
+for i in range(10):
+    g = Island.calc_grad_at_link(test)
+    qs[Island.active_links] = -D * g[Island.active_links]
+    dzdt = -Island.calc_flux_div_at_node(qs)
+    test[Island.core_nodes] = (test[Island.core_nodes]+ dzdt[Island.core_nodes]+Enet) * dt
+
+
+Island.imshow('salinity')
+
+'''
+for _ in range(1000):
+    g = Island.calc_grad_at_link(test)
+    qs[Island.active_links] = -D * g[Island.active_links]
+    dzdt = -Island.calc_flux_div_at_node(qs)
+    np.add(test[Island.core_nodes], ((dzdt[Island.core_nodes] - Enet) * dt),out=test[Island.core_nodes], casting="unsafe")
+
+Island.imshow('salinity')
+'''
+
+'''
+for _ in range(25):
+    g = Island.calc_grad_at_link(z)
+    qs[Island.active_links] = -D * g[Island.active_links]
+    dzdt = -Island.calc_flux_div_at_node(qs)
+    z[Island.core_nodes] += (dzdt[Island.core_nodes] - Enet) * dt
+ 
+Island.imshow(z)
+
+
+
+Island.imshow("salinity")
 
 imshow_grid(Island,'salinity',at='node')
 
-
+'''
 
 
 
