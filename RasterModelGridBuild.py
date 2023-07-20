@@ -54,45 +54,135 @@ import rasterio as rio
 
 File = rio.open('/Users/isamarcortes/Dropbox/Isamar/Papers_In_Prep/Paper_4/RasterLayersForLandlab/PR1.tif')
 veg_array = File.read(1)
-sal_array = File.read(1)
-sal_array[sal_array==0]=35
-sal_array[sal_array==1]=36
+test = File.read(1)
+
+
+sal_array = np.select([veg_array == 0, veg_array == 1], [35, 36], veg_array)
 
 
 
-#plt.imshow(array)
+#plt.imshow(sal_array)
 #plt.colorbar()
+
 
 Island = RasterModelGrid((veg_array.shape))
 Island.add_field('vegetation',veg_array,at='node')
 
 
 
-test = Island.add_field('salinity',sal_array,at='node')
-Island.status_at_node['salinity'==35]=Island.BC_NODE_IS_CLOSED
-Island.status_at_node['salinity'==36]=Island.BC_NODE_IS_CORE
+#salinity = Island.add_field('salinity',sal_array,at='node')
+#Island.status_at_node[salinity == 35]=Island.BC_NODE_IS_FIXED_VALUE
+#Island.status_at_node[salinity==36]=Island.BC_NODE_IS_CORE
+qs = Island.add_zeros("salinity_flux", at="link")
+
+salinity = Island.add_zeros('salinity', at='node')
+Island.status_at_node[veg_array.flatten()==0] = Island.BC_NODE_IS_FIXED_VALUE
+salinity[:] = 35.0
+
+
+#Island.set_status_at_node_on_edges(right=Island.BC_NODE_IS_CLOSED,
+#                               top=Island.BC_NODE_IS_CLOSED,
+#                               left=Island.BC_NODE_IS_CLOSED,
+#                               bottom=Island.BC_NODE_IS_CLOSED)
+
+#imshow_grid(Island, Island.status_at_node, color_for_closed='blue')
+
+
+Enet = 0.9 #m/yr net evaporation rate
+sr = 36
+b = 1
+D = 26 #m^2/yr 
+#dt = 0.005
+dt = 0.04 * Island.dx * Island.dx / D
+#gradients = Island.calc_grad_at_link(salinity)
+#qs[Island.active_links] = -D * gradients[Island.active_links]
+#dy = -Island.calc_flux_div_at_node(qs)
+#salinity[Island.core_nodes] = (salinity[Island.core_nodes] +Enet)
+
+
+print(dt * 100)
+
+for i in range(1000):
+    g = Island.calc_grad_at_link(salinity)
+    qs[Island.active_links] = -D * g[Island.active_links]
+    dqdx = Island.calc_flux_div_at_node(qs)
+    dsdt = -dqdx + (Enet*(sr/b)) 
+    salinity[Island.core_nodes] = salinity[Island.core_nodes] + (dsdt[Island.core_nodes]*dt)
+
+
+#imshow_grid(Island, dsdt)
+#imshow_grid(Island, "vegetation")
+#plt.figure()
+
+
+'''
+for iteration in range(500):
+    for i in range(1, sal_array.shape[0]):
+        for j in range(1, sal_array.shape[1]):
+            salinity[i, j] = D * (salinity[i+1][j] + salinity[i-1][j] + salinity[i][j+1] + salinity[i][j-1])+Enet
+'''
+Island.imshow('salinity',cmap='coolwarm')
+
+'''
+#Island.status_at_node[salinity==36]=Island.BC_NODE_IS_CORE
 qs = Island.add_zeros("salinity_flux", at="link")
 #Island.imshow('vegetation')
+#Island.imshow('salinity')
 
 Enet = 0.9 #m/yr net evaporation rate
 D = 21 #m^2/yr 
 dt = 0.2 * Island.dx * Island.dx / D
 
+gradients = Island.calc_grad_at_link(salinity)
+qs[Island.active_links] = -D * gradients[Island.active_links]
+dy = -Island.calc_flux_div_at_node(qs)
+salinity[Island.core_nodes] = (salinity[Island.core_nodes] + dy[Island.core_nodes]+Enet)
 
-#Island.set_closed_boundaries_at_grid_edges(True, False, True, False)
+'''
 
-#g = Island.calc_grad_at_link(test)
-#q = -D * g
-#dqda = Island.calc_flux_div_at_node(q) 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+'''
 for i in range(10):
-    g = Island.calc_grad_at_link(test)
+    gradients = Island.calc_grad_at_link(salinity)
     qs[Island.active_links] = -D * g[Island.active_links]
     dzdt = -Island.calc_flux_div_at_node(qs)
-    test[Island.core_nodes] = (test[Island.core_nodes]+ dzdt[Island.core_nodes]+Enet) * dt
+    salinity[Island.core_nodes] = (salinity[Island.core_nodes] + dzdt[Island.core_nodes]+Enet) * dt
 
-
-Island.imshow('salinity')
+'''
+#Island.imshow('salinity')
 
 '''
 for _ in range(1000):
