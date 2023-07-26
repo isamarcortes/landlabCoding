@@ -10,42 +10,6 @@ from landlab import RasterModelGrid, imshow_grid
 from landlab.components import LinearDiffuser
 import numpy as np
 import matplotlib.pyplot as plt
-
-'''
-dx = 1 ###space per cell
-rows = 40###rows of grid
-columns = 40###columns of grid
-
-grid_veg = RasterModelGrid((rows,columns),dx)###creating grid
-veg = grid_veg.add_ones('vegetation',at='cell')###initializing vegetation grid
-
-
-
-
-####salinity grid
-
-grid_salinity = RasterModelGrid((rows,columns),dx)###creating same sized grid for salinity
-salinity = grid_salinity.add_zeros('salinity',at='node',units = 'ppt',clobber = True)###initializing grid with zeros
-
-salinityCenterX,salinityCenterY = (20,20)###position of highest outer edge salinity
-salinity_node = int(salinityCenterY / dx * columns + salinityCenterX / dx)###this part came from the tutorial
-
-grid_salinity.at_node['salinity'][salinity_node]=130###high in center of island
-Enet = 2 ###source term for model
-D=100
-dx, dy = grid_salinity.dx, grid_salinity.dy ###getting dx and dy from rasterModelGrid
-dt = 1000
-n_steps = 100 ###total number of iterations
-salinityAtCenter = np.zeros(n_steps)
-'''
-#imshow_grid(grid_salinity,'salinity')
-
-#ld = LinearDiffuser(grid_salinity,linear_diffusivity=10)
-
-
-#Attempting to work with NetworkModelGrid 
-#Past this point
-
 import rasterio as rio
 
 
@@ -61,12 +25,8 @@ sal_array = np.select([veg_array == 0, veg_array == 1], [35, 36], veg_array)
 
 
 
-#plt.imshow(sal_array)
-#plt.colorbar()
-
-
 Island = RasterModelGrid((veg_array.shape))
-Island.add_field('vegetation',veg_array,at='node')
+vegetation = Island.add_field('vegetation',veg_array,at='node')
 
 
 
@@ -78,7 +38,8 @@ qs = Island.add_zeros("salinity_flux", at="link")
 salinity = Island.add_zeros('salinity', at='node')
 Island.status_at_node[veg_array.flatten()==0] = Island.BC_NODE_IS_FIXED_VALUE
 salinity[:] = 35.0
-
+salinity[:21502]=85.000011
+#salinity[:10000]=45.000011
 
 #Island.set_status_at_node_on_edges(right=Island.BC_NODE_IS_CLOSED,
 #                               top=Island.BC_NODE_IS_CLOSED,
@@ -88,12 +49,10 @@ salinity[:] = 35.0
 #imshow_grid(Island, Island.status_at_node, color_for_closed='blue')
 
 
-Enet = 0.9 #m/yr net evaporation rate
-sr = 36
-b = 1
-D = 26 #m^2/yr 
+Enet = 1.15 #m/yr net evaporation rate
+D = 23 #m^2/yr 
 #dt = 0.005
-dt = 0.04 * Island.dx * Island.dx / D
+dt = 0.2 * Island.dx * Island.dx / D
 #gradients = Island.calc_grad_at_link(salinity)
 #qs[Island.active_links] = -D * gradients[Island.active_links]
 #dy = -Island.calc_flux_div_at_node(qs)
@@ -102,26 +61,31 @@ dt = 0.04 * Island.dx * Island.dx / D
 
 print(dt * 100)
 
-for i in range(1000):
+for i in range(10000):
     g = Island.calc_grad_at_link(salinity)
     qs[Island.active_links] = -D * g[Island.active_links]
     dqdx = Island.calc_flux_div_at_node(qs)
-    dsdt = -dqdx + (Enet*(sr/b)) 
+    dsdt = -dqdx + Enet
     salinity[Island.core_nodes] = salinity[Island.core_nodes] + (dsdt[Island.core_nodes]*dt)
 
 
-#imshow_grid(Island, dsdt)
-#imshow_grid(Island, "vegetation")
-#plt.figure()
+test = salinity.reshape((141,305))
+test1 = test[:,150]
 
 
-'''
-for iteration in range(500):
-    for i in range(1, sal_array.shape[0]):
-        for j in range(1, sal_array.shape[1]):
-            salinity[i, j] = D * (salinity[i+1][j] + salinity[i-1][j] + salinity[i][j+1] + salinity[i][j-1])+Enet
-'''
-Island.imshow('salinity',cmap='coolwarm')
+salinityBinary = salinity
+salinityBinary[salinityBinary>100]=0
+salinityBinary[salinityBinary==35]=0
+salinityBinary[salinityBinary==85.000011]=0
+#salinityBinary[(salinityBinary > 35) | (salinityBinary < 69)] = 1
+t = salinityBinary.reshape((141,305))
+
+#Island.imshow('salinity',cmap='coolwarm')
+
+
+plt.imshow(t)
+plt.colorbar()
+plt.contour(t,[72], colors='white')
 
 '''
 #Island.status_at_node[salinity==36]=Island.BC_NODE_IS_CORE
